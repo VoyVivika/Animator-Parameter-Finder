@@ -8,23 +8,27 @@ using UnityEditor.Animations;
 
 namespace Voy.AviParamFinder
 {
-    public class Parser : MonoBehaviour
+    public class Parser
     {
-
         private AnimatorController animator;
         private string parameter;
         private List<string> foundLocations;
         private byte blendTreeDepth = 0;
+        private AnimatorControllerParameterType type;
+        private byte blendTreeDepthExceededCount = 0;
+        private bool blendTreeDepthExceeded = false;
+        private byte BlendTreeMaxDepth = 16;
 
         public List<string> GetLocations()
         {
             return foundLocations;
         }
 
-        public Parser(AnimatorController anim, string param)
+        public Parser(AnimatorController anim, string param, byte maxBlendCount)
         {
             animator = anim;
             parameter = param;
+            BlendTreeMaxDepth = maxBlendCount;
             Debug.Log("Parser Created");
         }
 
@@ -51,6 +55,11 @@ namespace Voy.AviParamFinder
                 return null;
             }
 
+            foreach (AnimatorControllerParameter param in animator.parameters)
+            {
+                if (param.name == parameter) type = param.type;
+            }
+
             foundLocations = new List<string>();
 
             Debug.Log("Beginning Search for " + parameter);
@@ -63,7 +72,7 @@ namespace Voy.AviParamFinder
                 Debug.Log("parsing layer: " + currentLocation);
                 AnimatorStateMachine stateMachine = layer.stateMachine;
                 parseStateMachine(stateMachine, currentLocation, true);
-                
+
             }
 
             Debug.Log(foundLocations.Count);
@@ -75,7 +84,7 @@ namespace Voy.AviParamFinder
         {
             string currentLocation = location;
 
-            Debug.Log("SM: AST:" + stateMachine.anyStateTransitions.Length.ToString() + ", ET:" + stateMachine.entryTransitions.Length.ToString() + ", SM:" + stateMachine.stateMachines.Length.ToString() + ", S:" + stateMachine.states.Length.ToString());
+            Debug.Log(location + " SM: AST:" + stateMachine.anyStateTransitions.Length.ToString() + ", ET:" + stateMachine.entryTransitions.Length.ToString() + ", SM:" + stateMachine.stateMachines.Length.ToString() + ", S:" + stateMachine.states.Length.ToString());
 
 
             if (!isRoot)
@@ -83,7 +92,7 @@ namespace Voy.AviParamFinder
                 currentLocation = location + "/" + stateMachine.name;
             }
 
-            Debug.Log("parsing stateMachine: " + currentLocation);
+            //Debug.Log("parsing stateMachine: " + currentLocation);
 
             parseAnystateTransitions(stateMachine, currentLocation);
 
@@ -101,29 +110,57 @@ namespace Voy.AviParamFinder
         {
             foreach (ChildAnimatorState state in states)
             {
-                parseState(state.state, location);
+                if (state.state != null)
+                    parseState(state.state, location);
+                else
+                    Debug.Log(location + ": somehow, this state is null.");
             }
         }
 
         private void parseState(AnimatorState state, string location)
         {
             string currentLocation = location + "/" + state.name;
-            if (state.motion.GetType() == typeof(BlendTree))
-            {
-                parseBlendTree((BlendTree)state.motion, currentLocation, true);
-                blendTreeDepth = 0;
-                return;
-            }
 
-            if (state.cycleOffsetParameter == parameter) foundLocations.Add(currentLocation + "/Cycle Offset (" + btoo(state.cycleOffsetParameterActive) + ")");
-            if (state.mirrorParameter == parameter) foundLocations.Add(currentLocation + "/Mirror (" + btoo(state.mirrorParameterActive) + ")");
-            if (state.speedParameter == parameter) foundLocations.Add(currentLocation + "/Speed (" + btoo(state.speedParameterActive) + ")");
-            if (state.timeParameter == parameter) foundLocations.Add(currentLocation + "/Time (" + btoo(state.timeParameterActive) + ")");
+            if (type == AnimatorControllerParameterType.Float)
+            {
+                if (state.motion != null)
+                {
+                    if (state.motion.GetType() == typeof(BlendTree))
+                    {
+                        Debug.Log(currentLocation + ": BlendTree Found.");
+                        parseBlendTree((BlendTree)state.motion, currentLocation, true);
+                        if (blendTreeDepth >= BlendTreeMaxDepth) blendTreeDepthExceededCount++;
+                        blendTreeDepth = 0;
+                        blendTreeDepthExceeded = false;
+                        return;
+                    }
+
+                    if (state.cycleOffsetParameter == parameter) foundLocations.Add(currentLocation + "/Cycle Offset (" + btoo(state.cycleOffsetParameterActive) + ")");
+                    if (state.mirrorParameter == parameter) foundLocations.Add(currentLocation + "/Mirror (" + btoo(state.mirrorParameterActive) + ")");
+                    if (state.speedParameter == parameter) foundLocations.Add(currentLocation + "/Speed (" + btoo(state.speedParameterActive) + ")");
+                    if (state.timeParameter == parameter) foundLocations.Add(currentLocation + "/Time (" + btoo(state.timeParameterActive) + ")");
+                }
+            }
 
             int bIdx = 0;
             foreach (StateMachineBehaviour behaviour in state.behaviours)
             {
                 string behaviourLocation = (currentLocation + "/Behaviour " + bIdx + "/");
+
+#if VRC_SDK_VRCSDK3
+
+                if (behaviour.GetType() == typeof(VRC.SDK3.Avatars.Components.VRCAvatarParameterDriver))
+                {
+                    VRC.SDK3.Avatars.Components.VRCAvatarParameterDriver driver = (VRC.SDK3.Avatars.Components.VRCAvatarParameterDriver)behaviour;
+
+                    foreach(VRC.SDKBase.VRC_AvatarParameterDriver.Parameter param in driver.parameters)
+                    {
+                        if(param.name == parameter || param.source == parameter)
+                            foundLocations.Add(behaviourLocation + "VRC Avatar Parameter Driver");
+                    }
+                }
+
+#endif
 
 #if CVR_CCK_EXISTS
 
@@ -133,7 +170,7 @@ namespace Voy.AviParamFinder
 
                     foreach (ABI.CCK.Components.AnimatorDriverTask task in driver.EnterTasks)
                     {
-                        if(task.aName == parameter || task.bName == parameter || task.cName == parameter || task.targetName == parameter)
+                        if (task.aName == parameter || task.bName == parameter || task.cName == parameter || task.targetName == parameter)
                             foundLocations.Add(behaviourLocation + "CVR Animator Driver");
                     }
                 }
@@ -144,7 +181,7 @@ namespace Voy.AviParamFinder
 
             Debug.Log("ST:" + state.transitions.Length.ToString());
             int idx = 0;
-            foreach(AnimatorStateTransition transition in state.transitions)
+            foreach (AnimatorStateTransition transition in state.transitions)
             {
                 string transitionLocation = currentLocation + "/transition " + idx;
                 if (parseStateTransiton(transition)) foundLocations.Add(transitionLocation);
@@ -161,6 +198,8 @@ namespace Voy.AviParamFinder
 
         private void parseBlendTree(BlendTree blendTree, string location, bool isRoot = false)
         {
+            if (blendTree == null) return;
+
             string currentLocation = location + "/" + blendTree.name;
 
             if (isRoot) currentLocation = location;
@@ -172,15 +211,9 @@ namespace Voy.AviParamFinder
 
             if (isUsedHere) foundLocations.Add(location);
 
-            //yield return null; // i'm doing this because direct blend trees exist and I don't need unity crashing over really absurd ones.
+            if (blendTreeDepthExceeded) return;
 
-            /*if (blendTreeDepth == byte.MaxValue)
-            {
-                Debug.Log("BlendTree Depth Exceeded! We are not continuing!");
-                return;
-            }*/
-
-            foreach(ChildMotion childBlend in blendTree.children)
+            foreach (ChildMotion childBlend in blendTree.children)
             {
                 if (childBlend.directBlendParameter == parameter)
                 {
@@ -189,8 +222,17 @@ namespace Voy.AviParamFinder
 
                 if (childBlend.motion.GetType() == typeof(BlendTree))
                 {
-                    if (blendTreeDepth < byte.MaxValue) blendTreeDepth++;
-                    parseBlendTree(blendTree, location);
+                    if (blendTreeDepth < BlendTreeMaxDepth)
+                    {
+                        blendTreeDepth++;
+                        parseBlendTree(blendTree, location);
+                    }
+                    else
+                    {
+                        Debug.Log("BlendTree Depth Exceeded! We are not continuing!");
+                        blendTreeDepthExceeded = true;
+                        continue;
+                    }
                 }
 
             }
@@ -243,7 +285,7 @@ namespace Voy.AviParamFinder
         private bool parseTranstion(AnimatorTransition transition)
         {
             bool result = false;
-            foreach(AnimatorCondition condition in transition.conditions)
+            foreach (AnimatorCondition condition in transition.conditions)
             {
                 result = parseAnimatorCondition(condition);
             }

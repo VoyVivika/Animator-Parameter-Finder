@@ -19,6 +19,7 @@ namespace Voy.AviParamFinder
         List<string> locations = null;
         bool findParam = false;
         Vector2 scroll = new Vector2();
+        byte maxBlendCount = 16;
 
         [MenuItem("Voy/Animator Parameter Finder")]
         public static void ShowUI()
@@ -32,7 +33,16 @@ namespace Voy.AviParamFinder
             EditorGUILayout.HelpBox("This Utility Aims to help find where a Parameter is being used in your Unity Animator", MessageType.Info);
             animator = (AnimatorController)EditorGUILayout.ObjectField(GUIContent.none, animator, typeof(AnimatorController), false);
             parameter = EditorGUILayout.TextField(parameter);
-            EditorGUILayout.Space();
+            GUILayout.Label("Maximum Blend Tree Depth: "+ maxBlendCount);
+            maxBlendCount = (byte)GUILayout.HorizontalSlider((float)maxBlendCount, 0, 255);
+            EditorGUILayout.Space(16);
+
+            if(maxBlendCount >= 32)
+            {
+                EditorGUILayout.HelpBox("You're setting this kind of high. Having this value too high may stall Unity for too long and cause it to close/crash if your Animator makes heavy usage of BlendTrees, especially Direct Blend Trees!", MessageType.Warning);
+            }
+
+            EditorGUILayout.Space(16);
 
             findParam = (GUILayout.Button("Find Parameter"));
             
@@ -64,7 +74,7 @@ namespace Voy.AviParamFinder
 
         public void findParameter()
         {
-            Parser parser = new Parser(animator, parameter);
+            Parser parser = new Parser(animator, parameter, maxBlendCount);
             if (parser == null) Debug.Log("WHY IS THIS NULL!?! I JUST MADE IT!?!");
             if (parser.parse() != null) locations = parser.GetLocations();
             else Debug.Log("Could not find usage of parameter :(");
