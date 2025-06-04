@@ -11,8 +11,9 @@ namespace Voy.AviParamFinder
 {
     public class AnimatorParameterFinder : EditorWindow
     {
-        const string VERSION = "1.0.0";
-        const string CREDIT = "AnimatorParameterFinder by VoyVivika";
+        const string VERSION = "1.0.1";
+        const string CREDIT = "Animator Parameter Finder by VoyVivika";
+        const string GITLINK = "(https://github.com/VoyVivika/Animator-Parameter-Finder)";
 
         AnimatorController animator;
         string parameter = "Parameter Name";
@@ -30,22 +31,25 @@ namespace Voy.AviParamFinder
 
         public void OnGUI()
         {
-            EditorGUILayout.HelpBox("This Utility Aims to help find where a Parameter is being used in your Unity Animator", MessageType.Info);
+            EditorGUILayout.HelpBox(CREDIT + "\n" + VERSION + " " + GITLINK, MessageType.Info);
             animator = (AnimatorController)EditorGUILayout.ObjectField(GUIContent.none, animator, typeof(AnimatorController), false);
             parameter = EditorGUILayout.TextField(parameter);
+
+            /*
             GUILayout.Label("Maximum Blend Tree Depth: "+ maxBlendCount);
             maxBlendCount = (byte)GUILayout.HorizontalSlider((float)maxBlendCount, 0, 255);
             EditorGUILayout.Space(16);
-
+            
             if(maxBlendCount >= 32)
             {
                 EditorGUILayout.HelpBox("You're setting this kind of high. Having this value too high may stall Unity for too long and cause it to close/crash if your Animator makes heavy usage of BlendTrees, especially Direct Blend Trees!", MessageType.Warning);
             }
 
             EditorGUILayout.Space(16);
+            */
 
             findParam = (GUILayout.Button("Find Parameter"));
-            
+
             if (findParam)
             {
                 findParam = false;
@@ -74,10 +78,21 @@ namespace Voy.AviParamFinder
 
         public void findParameter()
         {
-            Parser parser = new Parser(animator, parameter, maxBlendCount);
+
+            // The things I have to do for corountines.
+            // Update: this works, this feels really hacky but this is pretty much the only option I have.
+            GameObject gameObject = new GameObject();
+            Parser parser = gameObject.AddComponent<Parser>();
+            parser.animator = animator; parser.parameter = parameter;
+
+            //Parser parser = new Parser(animator, parameter, maxBlendCount); // removed because I needed coroutine support.
             if (parser == null) Debug.Log("WHY IS THIS NULL!?! I JUST MADE IT!?!");
             if (parser.parse() != null) locations = parser.GetLocations();
             else Debug.Log("Could not find usage of parameter :(");
+
+            // time to delete this garbage I had to add for coroutine support.
+            DestroyImmediate(parser);
+            DestroyImmediate(gameObject);
         }
     }
 }

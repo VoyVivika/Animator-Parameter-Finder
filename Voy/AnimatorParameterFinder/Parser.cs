@@ -8,16 +8,22 @@ using UnityEditor.Animations;
 
 namespace Voy.AviParamFinder
 {
-    public class Parser
+    public class Parser : MonoBehaviour
     {
-        private AnimatorController animator;
-        private string parameter;
+        [HideInInspector]
+        public AnimatorController animator;
+
+        [HideInInspector]
+        public string parameter;
+
+        [HideInInspector]
+        public byte BlendTreeMaxDepth = 16;
+
         private List<string> foundLocations;
-        private byte blendTreeDepth = 0;
         private AnimatorControllerParameterType type;
         private byte blendTreeDepthExceededCount = 0;
         private bool blendTreeDepthExceeded = false;
-        private byte BlendTreeMaxDepth = 16;
+        private byte blendTreeDepth = 0;
 
         public List<string> GetLocations()
         {
@@ -71,7 +77,7 @@ namespace Voy.AviParamFinder
                 string currentLocation = layer.name;
                 Debug.Log("parsing layer: " + currentLocation);
                 AnimatorStateMachine stateMachine = layer.stateMachine;
-                parseStateMachine(stateMachine, currentLocation, true);
+                StartCoroutine(parseStateMachine(stateMachine, currentLocation, true));
 
             }
 
@@ -80,7 +86,7 @@ namespace Voy.AviParamFinder
             return foundLocations;
         }
 
-        private void parseStateMachine(AnimatorStateMachine stateMachine, string location, bool isRoot = false)
+        private IEnumerator parseStateMachine(AnimatorStateMachine stateMachine, string location, bool isRoot = false)
         {
             string currentLocation = location;
 
@@ -100,10 +106,15 @@ namespace Voy.AviParamFinder
 
             parseStates(stateMachine.states, currentLocation);
 
+            yield return null;
+            //Debug.Log("Returned from yield");
+
             foreach (ChildAnimatorStateMachine childMachine in stateMachine.stateMachines)
             {
                 parseStateMachine(childMachine.stateMachine, currentLocation);
             }
+
+            yield break;
         }
 
         private void parseStates(ChildAnimatorState[] states, string location)
@@ -153,9 +164,9 @@ namespace Voy.AviParamFinder
                 {
                     VRC.SDK3.Avatars.Components.VRCAvatarParameterDriver driver = (VRC.SDK3.Avatars.Components.VRCAvatarParameterDriver)behaviour;
 
-                    foreach(VRC.SDKBase.VRC_AvatarParameterDriver.Parameter param in driver.parameters)
+                    foreach (VRC.SDKBase.VRC_AvatarParameterDriver.Parameter param in driver.parameters)
                     {
-                        if(param.name == parameter || param.source == parameter)
+                        if (param.name == parameter || param.source == parameter)
                             foundLocations.Add(behaviourLocation + "VRC Avatar Parameter Driver");
                     }
                 }
@@ -189,6 +200,7 @@ namespace Voy.AviParamFinder
             }
         }
 
+        // Bool to On/Off
         private string btoo(bool b)
         {
             if (b) return "On";
@@ -213,18 +225,20 @@ namespace Voy.AviParamFinder
 
             if (blendTreeDepthExceeded) return;
 
+            //yield return null;
+
             foreach (ChildMotion childBlend in blendTree.children)
             {
                 if (childBlend.directBlendParameter == parameter)
                 {
-                    foundLocations.Add(location + "/" + childBlend.motion.name);
+                    foundLocations.Add(currentLocation + "/" + childBlend.motion.name);
                 }
 
                 if (childBlend.motion.GetType() == typeof(BlendTree))
                 {
                     if (blendTreeDepth < BlendTreeMaxDepth)
                     {
-                        blendTreeDepth++;
+                        //blendTreeDepth++;
                         parseBlendTree(blendTree, location);
                     }
                     else
@@ -236,7 +250,6 @@ namespace Voy.AviParamFinder
                 }
 
             }
-
 
         }
 
