@@ -1,2 +1,16 @@
-# AnimatorParameterFinder
-Unity Editor Tool for Finding where in an Animator Controller a Parameter of a specified name is being used.
+# Animator Parameter Finder
+This Utility will Seek Through a Provided Unity Animator Controller and try to find any usage of a Parameter of the Specified Name. This is useful if you are trying to delete a Parameter but may be un-aware where it may also be being used.
+
+This Utility will look for the usage of this Parameter in:
+- Transitions
+- Entry Transtions
+- Anystate Transitions
+- States
+   - Cycle Offset
+   - Mirror
+   - Speed
+   - Time
+- Blend Trees
+- Animator State Behaviours in the Following Game Specific Scripts:
+   - ChilloutVR CCK
+      - Animator Driver

@@ -139,7 +139,7 @@ namespace Voy.AviParamFinder
                 }
 
 #endif
-                bIdx++;
+                if (bIdx < int.MaxValue) bIdx++;
             }
 
             Debug.Log("ST:" + state.transitions.Length.ToString());
@@ -174,11 +174,11 @@ namespace Voy.AviParamFinder
 
             //yield return null; // i'm doing this because direct blend trees exist and I don't need unity crashing over really absurd ones.
 
-            if (blendTreeDepth == byte.MaxValue)
+            /*if (blendTreeDepth == byte.MaxValue)
             {
                 Debug.Log("BlendTree Depth Exceeded! We are not continuing!");
                 return;
-            }
+            }*/
 
             foreach(ChildMotion childBlend in blendTree.children)
             {
@@ -189,7 +189,7 @@ namespace Voy.AviParamFinder
 
                 if (childBlend.motion.GetType() == typeof(BlendTree))
                 {
-                    blendTreeDepth++;
+                    if (blendTreeDepth < byte.MaxValue) blendTreeDepth++;
                     parseBlendTree(blendTree, location);
                 }
 
