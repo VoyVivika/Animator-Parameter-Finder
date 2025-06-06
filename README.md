@@ -5,6 +5,11 @@ This Utility is confirmed to work in:
 - Unity 2021.3.45f1
 - Unity 2022.3.22f1
 
+Notes:
+- This requires having some kind of scene open, because this needs to create a throw-away GameObject (Unity Limitation).
+   - You probably don't want to use this while a Prefab is Open.
+   - You probably don't want to use this while the Humanoid Rig Editor is open.
+
 This Utility will search for Parameters in:
 - Transitions
 - Entry Transtions

@@ -1,10 +1,10 @@
+#if UNITY_EDITOR
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Animations;
-
-#if UNITY_EDITOR
 
 namespace Voy.AviParamFinder
 {
@@ -21,7 +21,7 @@ namespace Voy.AviParamFinder
 
         private List<string> foundLocations;
         private AnimatorControllerParameterType type;
-        private byte blendTreeDepthExceededCount = 0;
+        //private byte blendTreeDepthExceededCount = 0;
         private bool blendTreeDepthExceeded = false;
         private byte blendTreeDepth = 0;
 
@@ -35,53 +35,65 @@ namespace Voy.AviParamFinder
             animator = anim;
             parameter = param;
             BlendTreeMaxDepth = maxBlendCount;
-            Debug.Log("Parser Created");
+            //Debug.Log("Parser Created");
         }
 
         public List<string> parse()
         {
-            Debug.Log("Parsing Initated");
+            //Debug.Log("Parsing Initated");
 
             if (animator == null)
             {
-                Debug.Log("Animator not set, cannot parse.");
+                //Debug.Log("Animator not set, cannot parse.");
                 return null;
             }
 
             if (parameter == null)
             {
-                Debug.Log("Parameter is null... how even?");
+                //Debug.Log("Parameter is null... how even?");
                 return null;
             }
 
-            // I'm not bothering to add more than 5 spaces, if you have a better way of handling this, let me know.
-            if (parameter == "" || parameter == " " || parameter == "   " || parameter == "    ")
+            if (parameter == "")
             {
-                Debug.Log("Parameter is empty, not bothering to parse nothing.");
+                Debug.LogWarning("Parameter is empty.");
                 return null;
             }
 
-            foreach (AnimatorControllerParameter param in animator.parameters)
             {
-                if (param.name == parameter) type = param.type;
+                bool hasParam = false;
+                foreach (AnimatorControllerParameter param in animator.parameters)
+                {
+                    if (param.name == parameter)
+                    {
+                        type = param.type;
+                        hasParam = true;
+                    }
+                }
+
+                if (hasParam == false)
+                {
+                    Debug.LogWarning("Parameter is not in this Animator Controller.");
+                    return null;
+                }
             }
 
             foundLocations = new List<string>();
 
-            Debug.Log("Beginning Search for " + parameter);
+            //Debug.Log("Beginning Search for " + parameter);
 
             // youtu.be/QV-DZtN2IMU
 
             foreach (AnimatorControllerLayer layer in animator.layers)
             {
                 string currentLocation = layer.name;
-                Debug.Log("parsing layer: " + currentLocation);
+                //Debug.Log("parsing layer: " + currentLocation);
                 AnimatorStateMachine stateMachine = layer.stateMachine;
                 StartCoroutine(parseStateMachine(stateMachine, currentLocation, true));
 
             }
 
-            Debug.Log(foundLocations.Count);
+            //Debug.Log(foundLocations.Count);
 
             return foundLocations;
         }
@@ -90,7 +102,7 @@ namespace Voy.AviParamFinder
         {
             string currentLocation = location;
 
-            Debug.Log(location + " SM: AST:" + stateMachine.anyStateTransitions.Length.ToString() + ", ET:" + stateMachine.entryTransitions.Length.ToString() + ", SM:" + stateMachine.stateMachines.Length.ToString() + ", S:" + stateMachine.states.Length.ToString());
+            //Debug.Log(location + " SM: AST:" + stateMachine.anyStateTransitions.Length.ToString() + ", ET:" + stateMachine.entryTransitions.Length.ToString() + ", SM:" + stateMachine.stateMachines.Length.ToString() + ", S:" + stateMachine.states.Length.ToString());
 
 
             if (!isRoot)
@@ -98,7 +110,7 @@ namespace Voy.AviParamFinder
                 currentLocation = location + "/" + stateMachine.name;
             }
 
-            //Debug.Log("parsing stateMachine: " + currentLocation);
+            ////Debug.Log("parsing stateMachine: " + currentLocation);
 
             parseAnystateTransitions(stateMachine, currentLocation);
 
@@ -107,7 +119,7 @@ namespace Voy.AviParamFinder
             parseStates(stateMachine.states, currentLocation);
 
             yield return null;
-            //Debug.Log("Returned from yield");
+            ////Debug.Log("Returned from yield");
 
             foreach (ChildAnimatorStateMachine childMachine in stateMachine.stateMachines)
             {
@@ -124,7 +136,10 @@ namespace Voy.AviParamFinder
                 if (state.state != null)
                     parseState(state.state, location);
                 else
-                    Debug.Log(location + ": somehow, this state is null.");
+                {
+                    //Debug.Log(location + ": somehow, this state is null.");
+                }
+
             }
         }
 
@@ -138,9 +153,9 @@ namespace Voy.AviParamFinder
                 {
                     if (state.motion.GetType() == typeof(BlendTree))
                     {
-                        Debug.Log(currentLocation + ": BlendTree Found.");
+                        //Debug.Log(currentLocation + ": BlendTree Found.");
                         parseBlendTree((BlendTree)state.motion, currentLocation, true);
-                        if (blendTreeDepth >= BlendTreeMaxDepth) blendTreeDepthExceededCount++;
+                        //if (blendTreeDepth >= BlendTreeMaxDepth) blendTreeDepthExceededCount++;
                         blendTreeDepth = 0;
                         blendTreeDepthExceeded = false;
                         return;
@@ -190,7 +205,7 @@ namespace Voy.AviParamFinder
                 if (bIdx < int.MaxValue) bIdx++;
             }
 
-            Debug.Log("ST:" + state.transitions.Length.ToString());
+            //Debug.Log("ST:" + state.transitions.Length.ToString());
             int idx = 0;
             foreach (AnimatorStateTransition transition in state.transitions)
             {
@@ -243,7 +258,7 @@ namespace Voy.AviParamFinder
                     }
                     else
                     {
-                        Debug.Log("BlendTree Depth Exceeded! We are not continuing!");
+                        //Debug.Log("BlendTree Depth Exceeded! We are not continuing!");
                         blendTreeDepthExceeded = true;
                         continue;
                     }
@@ -259,10 +274,10 @@ namespace Voy.AviParamFinder
             foreach (AnimatorStateTransition transition in stateMachine.anyStateTransitions)
             {
                 string currentLocation = location + "/transition " + transitionIndex;
-                Debug.Log("parsing: " + currentLocation);
+                //Debug.Log("parsing: " + currentLocation);
                 if (parseStateTransiton(transition))
                 {
-                    Debug.Log("found!");
+                    //Debug.Log("found!");
                     foundLocations.Add(currentLocation);
                 }
                 transitionIndex++;
@@ -274,10 +289,10 @@ namespace Voy.AviParamFinder
             foreach (AnimatorTransition transition in stateMachine.entryTransitions)
             {
                 string currentLocation = location + "/entry transition " + transitionIndex;
-                Debug.Log("parsing: " + currentLocation);
+                //Debug.Log("parsing: " + currentLocation);
                 if (parseTranstion(transition))
                 {
-                    Debug.Log("found!");
+                    //Debug.Log("found!");
                     foundLocations.Add(currentLocation);
                 }
                 transitionIndex++;

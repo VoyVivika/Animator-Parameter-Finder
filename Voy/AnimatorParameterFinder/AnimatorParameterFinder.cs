@@ -1,11 +1,11 @@
+#if UNITY_EDITOR
+
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 using UnityEngine.UIElements;
 using UnityEditor.Animations;
-
-#if UNITY_EDITOR
 
 namespace Voy.AviParamFinder
 {
