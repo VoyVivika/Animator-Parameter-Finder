@@ -1,6 +1,10 @@
 # Animator Parameter Finder
 This Utility will Seek Through a Provided Unity Animator Controller and try to find any usage of a Parameter of the Specified Name. This is useful if you are trying to delete a Parameter but may be un-aware where it may also be being used.
 
+If you like this Utility, please feel free to [Support me via Ko-Fi](https://ko-fi.com/voyvivika)
+
+![Screenshot of the Utility](https://github.com/user-attachments/assets/86dc78f8-1cbf-4c0b-9b1d-b7b5cd7c33c1)
+
 This Utility is confirmed to work in:
 - Unity 2021.3.45f1
 - Unity 2022.3.22f1
