@@ -14,13 +14,23 @@ namespace Voy.AviParamFinder
         const string VERSION = "1.0.1";
         const string CREDIT = "Animator Parameter Finder by VoyVivika";
         const string GITLINK = "(https://github.com/VoyVivika/Animator-Parameter-Finder)";
+        
+        enum ErrorType
+        {
+            NONE = 0,
+            EMPTY_ANIMATOR = 1,
+            EMPTY_PARAMETER = 2,
+            NOT_FOUND = 3
+        }
 
+        ErrorType currentError = ErrorType.NONE;
         AnimatorController animator;
-        string parameter = "Parameter Name";
+        string parameter = "";
         List<string> locations = null;
         bool findParam = false;
         Vector2 scroll = new Vector2();
-        byte maxBlendCount = 16;
+        bool findAndReplace = false;
+        string rParameter = "";
 
         [MenuItem("Voy/Animator Parameter Finder")]
         public static void ShowUI()
@@ -33,27 +43,30 @@ namespace Voy.AviParamFinder
         {
             EditorGUILayout.HelpBox(CREDIT + "\n" + VERSION + " " + GITLINK, MessageType.Info);
             animator = (AnimatorController)EditorGUILayout.ObjectField(GUIContent.none, animator, typeof(AnimatorController), false);
+            EditorGUILayout.Space();
+            GUILayout.Label("Parameter to Find");
             parameter = EditorGUILayout.TextField(parameter);
 
-            /*
-            GUILayout.Label("Maximum Blend Tree Depth: "+ maxBlendCount);
-            maxBlendCount = (byte)GUILayout.HorizontalSlider((float)maxBlendCount, 0, 255);
-            EditorGUILayout.Space(16);
-            
-            if(maxBlendCount >= 32)
+            EditorGUILayout.Space();
+            //findAndReplace = GUILayout.Toggle(findAndReplace, "Find and Replace");
+
+            string findParamText = "Find Parameter";
+
+            if(findAndReplace)
             {
-                EditorGUILayout.HelpBox("You're setting this kind of high. Having this value too high may stall Unity for too long and cause it to close/crash if your Animator makes heavy usage of BlendTrees, especially Direct Blend Trees!", MessageType.Warning);
+                GUILayout.Label("Replacement Parameter");
+                rParameter = EditorGUILayout.TextField(rParameter);
+                if (findAndReplace && rParameter != null && rParameter != "") findParamText = "Find & Replace Parameter";
+                EditorGUILayout.Space();
             }
 
-            EditorGUILayout.Space(16);
-            */
+            findParam = (GUILayout.Button(findParamText));
 
-            findParam = (GUILayout.Button("Find Parameter"));
 
             if (findParam)
             {
                 findParam = false;
-                Debug.Log("Looking for Parameter: " + parameter);
+                //Debug.Log("Looking for Parameter: " + parameter);
                 findParameter();
             }
 
@@ -61,7 +74,21 @@ namespace Voy.AviParamFinder
 
             if (locations == null || locations.Count <= 0)
             {
-                EditorGUILayout.HelpBox("This List is Currently Empty. Select an Animator & Enter a Parameter Name and then Press the Find Button Above.", MessageType.Info);
+                switch (currentError)
+                {
+                    case ErrorType.EMPTY_ANIMATOR:
+                        EditorGUILayout.HelpBox("Please Select an Animator to Search Through.", MessageType.Warning);
+                        break;
+                    case ErrorType.EMPTY_PARAMETER:
+                        EditorGUILayout.HelpBox("Please Enter the Name of a Parameter to Find in the Animator.", MessageType.Warning);
+                        break;
+                    case ErrorType.NOT_FOUND:
+                        EditorGUILayout.HelpBox("Could not find the Parameter in this Animator.", MessageType.Error);
+                        break;
+                    default:
+                        EditorGUILayout.HelpBox("This List is Currently Empty. Select an Animator & Enter a Parameter Name and then Press the Find Button Above.", MessageType.Info );
+                        break;
+                }
             }
             else
             {
@@ -78,17 +105,41 @@ namespace Voy.AviParamFinder
 
         public void findParameter()
         {
+            locations = null;
+
+            if (animator == null)
+            {
+                currentError = ErrorType.EMPTY_ANIMATOR;
+                return;
+            }
+
+            if (parameter == null || parameter == "")
+            {
+                currentError = ErrorType.EMPTY_PARAMETER;
+                return;
+            }
 
             // The things I have to do for corountines.
             // Update: this works, this feels really hacky but this is pretty much the only option I have.
             GameObject gameObject = new GameObject();
             Parser parser = gameObject.AddComponent<Parser>();
-            parser.animator = animator; parser.parameter = parameter;
+            parser.animator = animator;
+            parser.parameter = parameter;
+
+            if(findAndReplace && rParameter != "")
+            {
+                parser.rParam = rParameter;
+                parser.findAndReplace = true;
+            }
 
             //Parser parser = new Parser(animator, parameter, maxBlendCount); // removed because I needed coroutine support.
             if (parser == null) Debug.Log("WHY IS THIS NULL!?! I JUST MADE IT!?!");
             if (parser.parse() != null) locations = parser.GetLocations();
-            else Debug.Log("Could not find usage of parameter :(");
+            else
+            {
+                //Debug.Log("Could not find usage of parameter :(");
+                currentError = ErrorType.NOT_FOUND;
+            }
 
             // time to delete this garbage I had to add for coroutine support.
             DestroyImmediate(parser);
